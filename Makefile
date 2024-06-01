@@ -13,11 +13,13 @@ OBJS = \
   $K/main.o \
   $K/vm.o \
   $K/proc.o \
+  $K/shmem_queue.o \
   $K/swtch.o \
   $K/trampoline.o \
   $K/trap.o \
   $K/syscall.o \
   $K/sysproc.o \
+  $K/syscrypt.o \
   $K/bio.o \
   $K/fs.o \
   $K/log.o \
@@ -73,7 +75,7 @@ endif
 
 LDFLAGS = -z max-page-size=4096
 
-$K/kernel: $(OBJS) $K/kernel.ld $U/initcode
+$K/kernel: $(OBJS) $K/kernel.ld $U/initcode $U/init_crypto_srv
 	$(LD) $(LDFLAGS) -T $K/kernel.ld -o $K/kernel $(OBJS) 
 	$(OBJDUMP) -S $K/kernel > $K/kernel.asm
 	$(OBJDUMP) -t $K/kernel | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $K/kernel.sym
@@ -83,6 +85,12 @@ $U/initcode: $U/initcode.S
 	$(LD) $(LDFLAGS) -N -e start -Ttext 0 -o $U/initcode.out $U/initcode.o
 	$(OBJCOPY) -S -O binary $U/initcode.out $U/initcode
 	$(OBJDUMP) -S $U/initcode.o > $U/initcode.asm
+
+$U/init_crypto_srv: $U/init_crypto_srv.S
+	$(CC) $(CFLAGS) -march=rv64g -nostdinc -I. -Ikernel -c $U/init_crypto_srv.S -o $U/init_crypto_srv.o
+	$(LD) $(LDFLAGS) -N -e start -Ttext 0 -o $U/init_crypto_srv.out $U/init_crypto_srv.o
+	$(OBJCOPY) -S -O binary $U/init_crypto_srv.out $U/init_crypto_srv
+	$(OBJDUMP) -S $U/init_crypto_srv.o > $U/init_crypto_srv.asm
 
 tags: $(OBJS) _init
 	etags *.S *.c
@@ -117,6 +125,8 @@ mkfs/mkfs: mkfs/mkfs.c $K/fs.h $K/param.h
 
 UPROGS=\
 	$U/_cat\
+	$U/_crypto_cli\
+	$U/_crypto_srv\
 	$U/_echo\
 	$U/_forktest\
 	$U/_grep\
@@ -141,7 +151,9 @@ fs.img: mkfs/mkfs README $(UPROGS)
 clean: 
 	rm -f *.tex *.dvi *.idx *.aux *.log *.ind *.ilg \
 	*/*.o */*.d */*.asm */*.sym \
-	$U/initcode $U/initcode.out $K/kernel fs.img \
+	$U/initcode $U/initcode.out \
+	$U/init_crypto_srv $U/init_crypto_srv.out \
+	$K/kernel fs.img \
 	mkfs/mkfs .gdbinit \
         $U/usys.S \
 	$(UPROGS)

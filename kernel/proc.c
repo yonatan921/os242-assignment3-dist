@@ -3,6 +3,7 @@
 #include "memlayout.h"
 #include "riscv.h"
 #include "spinlock.h"
+#include "sleeplock.h"
 #include "proc.h"
 #include "defs.h"
 
@@ -25,6 +26,9 @@ extern char trampoline[]; // trampoline.S
 // memory model when using p->parent.
 // must be acquired before any p->lock.
 struct spinlock wait_lock;
+
+int fs_initialized = 0;
+struct sleeplock fsinit_lock;
 
 // Allocate a page for each process's kernel stack.
 // Map it high in memory, followed by an invalid
@@ -51,6 +55,7 @@ procinit(void)
   
   initlock(&pid_lock, "nextpid");
   initlock(&wait_lock, "wait_lock");
+  initsleeplock(&fsinit_lock, "fsinit_lock");
   for(p = proc; p < &proc[NPROC]; p++) {
       initlock(&p->lock, "proc");
       p->state = UNUSED;
@@ -106,7 +111,7 @@ allocpid()
 // If found, initialize state required to run in the kernel,
 // and return with p->lock held.
 // If there are no free procs, or a memory allocation fails, return 0.
-static struct proc*
+struct proc*
 allocproc(void)
 {
   struct proc *p;
@@ -514,18 +519,20 @@ yield(void)
 void
 forkret(void)
 {
-  static int first = 1;
-
   // Still holding p->lock from scheduler.
   release(&myproc()->lock);
 
-  if (first) {
+  acquiresleep(&fsinit_lock);
+
+  if (!fs_initialized) {
     // File system initialization must be run in the context of a
     // regular process (e.g., because it calls sleep), and thus cannot
     // be run from main().
-    first = 0;
+    fs_initialized = 1;
     fsinit(ROOTDEV);
   }
+
+  releasesleep(&fsinit_lock);
 
   usertrapret();
 }

@@ -101,6 +101,9 @@ extern uint64 sys_unlink(void);
 extern uint64 sys_link(void);
 extern uint64 sys_mkdir(void);
 extern uint64 sys_close(void);
+extern uint64 sys_crypto_op(void);
+extern uint64 sys_take_shared_memory_request(void);
+extern uint64 sys_remove_shared_memory_request(void);
 
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
@@ -126,6 +129,9 @@ static uint64 (*syscalls[])(void) = {
 [SYS_link]    sys_link,
 [SYS_mkdir]   sys_mkdir,
 [SYS_close]   sys_close,
+[SYS_crypto_op] sys_crypto_op,
+[SYS_take_shared_memory_request] sys_take_shared_memory_request,
+[SYS_remove_shared_memory_request] sys_remove_shared_memory_request,
 };
 
 void

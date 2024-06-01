@@ -8,6 +8,7 @@ struct spinlock;
 struct sleeplock;
 struct stat;
 struct superblock;
+struct shmem_request;
 
 // bio.c
 void            binit(void);
@@ -82,6 +83,7 @@ void            panic(char*) __attribute__((noreturn));
 void            printfinit(void);
 
 // proc.c
+struct proc*    allocproc(void);
 int             cpuid(void);
 void            exit(int);
 int             fork(void);
@@ -106,6 +108,14 @@ void            yield(void);
 int             either_copyout(int user_dst, uint64 dst, void *src, uint64 len);
 int             either_copyin(void *dst, int user_src, uint64 src, uint64 len);
 void            procdump(void);
+
+// shmem_queue.c
+void            shmem_queue_init(void);
+void            shmem_queue_insert(int src_pid, int dst_pid, uint64 src_va, uint64 size);
+struct shmem_request shmem_queue_remove();
+
+// syscrypt.c
+void            crypto_srv_init(void);
 
 // swtch.S
 void            swtch(struct context*, struct context*);
