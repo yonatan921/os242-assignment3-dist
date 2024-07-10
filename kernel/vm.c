@@ -5,6 +5,10 @@
 #include "riscv.h"
 #include "defs.h"
 #include "fs.h"
+#include "spinlock.h"
+#include "proc.h"
+#include <inttypes.h>
+
 
 /*
  * the kernel's page table.
@@ -183,7 +187,7 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
       panic("uvmunmap: not mapped");
     if(PTE_FLAGS(*pte) == PTE_V)
       panic("uvmunmap: not a leaf");
-    if(do_free){
+    if(do_free && (*pte & PTE_S) == 0 ){
       uint64 pa = PTE2PA(*pte);
       kfree((void*)pa);
     }
@@ -436,4 +440,47 @@ copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
   } else {
     return -1;
   }
+}
+uint64 
+map_shared_pages(struct proc* src_proc,struct proc* dst_proc,uint64 src_va, uint64 size){
+  uint64 pa;
+  pte_t * pte;
+  uint64 src_start_page = PGROUNDDOWN(src_va);
+  uint64 dst_start_page = PGROUNDUP(dst_proc->sz);
+  uint64 current_dst_addr = dst_start_page; 
+  uint64 current_addr = src_start_page;
+  printf("in map_shared_pages\n");
+  for(; current_addr < src_va + size; current_addr += PGSIZE){
+    pte = walk(src_proc->pagetable, current_addr, 0);
+    printf("pte=%" PRIu64 "\n", pte);
+    if(pte == 0  || (*pte & PTE_V) == 0 || (*pte & PTE_U) == 0 )
+      return 0;
+    pa =  PTE2PA(*pte);
+    printf("pa= %" PRIu64 "\n", pa);
+    if(mappages(dst_proc->pagetable, current_dst_addr, PGSIZE, pa, PTE_S | PTE_FLAGS(*pte)) != 0){
+      return 0;
+    }
+    printf("After mapping");
+    current_dst_addr += PGSIZE;
+  }
+  dst_proc->sz += size + dst_start_page - dst_proc->sz; 
+  printf("dst_size=%" PRIu64 "\n", dst_proc->sz);
+  return dst_start_page;
+}
+uint64
+unmap_shared_pages(struct proc* p, uint64 addr, uint64 size){
+  printf("unmap_shared_pages\n");
+
+  uint64 current_addr = addr;
+  pte_t * pte;
+  for (; current_addr < addr + size; current_addr += PGSIZE)
+  {
+    pte = walk(p->pagetable, current_addr, 0);
+    if(pte == 0  || (*pte & PTE_V) == 0 || (*pte & PTE_U) == 0 || (*pte & PTE_S) == 0){
+      return -1;
+    }
+  }
+  uvmunmap(p->pagetable, addr, (PGROUNDUP(addr +size) - addr)/ PGSIZE, 0);
+  p->sz -= size;
+  return 0;
 }
