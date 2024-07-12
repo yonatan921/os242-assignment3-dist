@@ -78,7 +78,7 @@ shmem_queue_remove(void)
   shmem_queue.read_idx = (shmem_queue.read_idx + 1) % NSHMEM_REQS;
 
   wakeup(&shmem_queue);
-
+  
   release(&shmem_queue.lock);
 
   return req;

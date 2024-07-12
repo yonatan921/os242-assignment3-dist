@@ -57,20 +57,22 @@ uint64 sys_take_shared_memory_request(void) {
   if (src_proc == 0) {
     return -1;
   }
-  
+  acquire(&src_proc->lock);
   const uint64 dst_va = map_shared_pages(src_proc, p, req.src_va, req.size);
+  printf("After map\n");
   if (dst_va == 0) {
+    printf("dst_va=0\n");
     release(&src_proc->lock);
     return -1;
   }
-
+  
   uint64 arg_dst_va;
   uint64 arg_dst_size;
   argaddr(0, &arg_dst_va);
   argaddr(1, &arg_dst_size);
   copyout(p->pagetable, arg_dst_va, (char*)&dst_va, sizeof(dst_va));
   copyout(p->pagetable, arg_dst_size, (char*)&req.size, sizeof(req.size));
-
+  printf("Before realse\n"); 
   release(&src_proc->lock);
   return 0;
 }

@@ -458,29 +458,31 @@ map_shared_pages(struct proc* src_proc,struct proc* dst_proc,uint64 src_va, uint
     pa =  PTE2PA(*pte);
     printf("pa= %" PRIu64 "\n", pa);
     if(mappages(dst_proc->pagetable, current_dst_addr, PGSIZE, pa, PTE_S | PTE_FLAGS(*pte)) != 0){
+      printf("Fail mappages\n");
       return 0;
     }
-    printf("After mapping");
+    printf("After mapping\n");
     current_dst_addr += PGSIZE;
   }
   dst_proc->sz += size + dst_start_page - dst_proc->sz; 
   printf("dst_size=%" PRIu64 "\n", dst_proc->sz);
-  return dst_start_page;
+  return dst_start_page + (src_va - src_start_page);
 }
 uint64
 unmap_shared_pages(struct proc* p, uint64 addr, uint64 size){
   printf("unmap_shared_pages\n");
-
-  uint64 current_addr = addr;
+  uint64 start = PGROUNDDOWN(addr);
+  uint64 current_addr = start;
+  uint64 end = PGROUNDUP(addr + size);
   pte_t * pte;
-  for (; current_addr < addr + size; current_addr += PGSIZE)
+  for (; current_addr <end; current_addr += PGSIZE)
   {
     pte = walk(p->pagetable, current_addr, 0);
     if(pte == 0  || (*pte & PTE_V) == 0 || (*pte & PTE_U) == 0 || (*pte & PTE_S) == 0){
       return -1;
     }
   }
-  uvmunmap(p->pagetable, addr, (PGROUNDUP(addr +size) - addr)/ PGSIZE, 0);
+  uvmunmap(p->pagetable, start, ((end-start)/PGSIZE), 0);
   p->sz -= size;
   return 0;
 }
