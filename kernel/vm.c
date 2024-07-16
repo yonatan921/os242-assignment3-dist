@@ -447,10 +447,11 @@ map_shared_pages(struct proc* src_proc,struct proc* dst_proc,uint64 src_va, uint
   pte_t * pte;
   uint64 src_start_page = PGROUNDDOWN(src_va);
   uint64 dst_start_page = PGROUNDUP(dst_proc->sz);
+  uint64 end = PGROUNDUP(src_va + (uint32)size);
   uint64 current_dst_addr = dst_start_page; 
   uint64 current_addr = src_start_page;
   printf("in map_shared_pages\n");
-  for(; current_addr < src_va + size; current_addr += PGSIZE){
+  for(; current_addr < end; current_addr += PGSIZE){
     pte = walk(src_proc->pagetable, current_addr, 0);
     printf("pte=%" PRIu64 "\n", pte);
     if(pte == 0  || (*pte & PTE_V) == 0 || (*pte & PTE_U) == 0 )
@@ -464,7 +465,7 @@ map_shared_pages(struct proc* src_proc,struct proc* dst_proc,uint64 src_va, uint
     printf("After mapping\n");
     current_dst_addr += PGSIZE;
   }
-  dst_proc->sz += size + dst_start_page - dst_proc->sz; 
+  dst_proc->sz = current_dst_addr; 
   printf("dst_size=%" PRIu64 "\n", dst_proc->sz);
   return dst_start_page + (src_va - src_start_page);
 }
